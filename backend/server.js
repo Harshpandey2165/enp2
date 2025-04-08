@@ -1,21 +1,49 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const mysql = require('mysql2');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const authRoutes = require('./routes/auth');
 const accountRoutes = require('./routes/accounts');
 
 const app = express();
+const port = process.env.PORT || 8080;
 
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://simple-banking-system-vue.windsurf.build'
-}));
 app.use(express.json());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://banking-system-frontend.onrender.com'
+    : 'http://localhost:8080',
+  credentials: true
+}));
+
+// Database connection
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// Test database connection
+db.getConnection((err, connection) => {
+  if (err) {
+    console.error('Error connecting to the database:', err);
+    return;
+  }
+  console.log('Successfully connected to database');
+  connection.release();
 });
 
 // Routes
@@ -28,7 +56,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const server = app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
